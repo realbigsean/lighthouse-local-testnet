@@ -1,14 +1,18 @@
-version: '2'
+version: '3.4'
 services:
-  beacon:
-    image: ethdreamer/lighthouse:capella
+  beacon-1:
+    image: seananderson33/lighthouse:capella
     expose:
       - 5052
+      - 9000
     volumes:
       - ./shared:/shared
     entrypoint:
-      "/shared/scripts/beacon.sh"
-  execution:
+      "/shared/scripts/beacon.sh http://proxy-1:8551"
+    depends_on:
+      bootnode:
+        condition: service_healthy
+  execution-1:
     image: ethereum/client-go
     expose:
       - 8545
@@ -17,27 +21,102 @@ services:
       - ./shared:/shared
     entrypoint:
       "/shared/scripts/execution.sh"
-  validator:
-    image: ethdreamer/lighthouse:capella
+  validator-1:
+    image: seananderson33/lighthouse:capella
     expose:
       - 5052
     volumes:
       - ./shared:/shared
+      - ./datadir_1:/datadir
     entrypoint:
-      "/shared/scripts/validator.sh"
+      "/shared/scripts/validator.sh http://beacon-1:5052"
     depends_on:
-      - beacon
-      - execution
-  proxy:
-    image: ethdreamer/json_rpc_snoop:latest
+      lcli:
+        condition: service_completed_successfully
+#      - beacon-1
+#      - execution-1
+  proxy-1:
+    image: seananderson33/json_rpc_snoop:latest
     entrypoint: >
       /bin/bash -c "
-        ./json_rpc_snoop -p 8551 -b 0.0.0.0 http://execution:8551
+        ./json_rpc_snoop -p 8551 -b 0.0.0.0 http://execution-1:8551
       "
     expose:
       - 8551
+  beacon-2:
+    image: seananderson33/lighthouse:capella
+    expose:
+      - 9000
+      - 5052
+    volumes:
+      - ./shared:/shared
+    entrypoint:
+      "/shared/scripts/beacon.sh http://proxy-2:8551"
+    depends_on:
+      bootnode:
+        condition: service_healthy
+  execution-2:
+    image: ethereum/client-go
+    expose:
+      - 8545
+      - 8551
+    volumes:
+      - ./shared:/shared
+    entrypoint:
+      "/shared/scripts/execution.sh"
+  validator-2:
+    image: seananderson33/lighthouse:capella
+    expose:
+      - 5052
+    volumes:
+      - ./shared:/shared
+      - ./datadir_2:/datadir
+    entrypoint:
+      "/shared/scripts/validator.sh http://beacon-2:5052"
+    depends_on:
+      lcli:
+        condition: service_completed_successfully
+#      beacon-2:
+#      execution-2:
+  proxy-2:
+    image: seananderson33/json_rpc_snoop:latest
+    entrypoint: >
+      /bin/bash -c "
+        ./json_rpc_snoop -p 8551 -b 0.0.0.0 http://execution-2:8551
+      "
+    expose:
+      - 8551
+  lcli:
+    image: seananderson33/lcli:capella-plus
+    volumes:
+      - ./shared:/shared
+      - ./datadir_1:/datadir_1
+      - ./datadir_2:/datadir_2
+    entrypoint:
+      "/shared/scripts/gen_validators.sh"
+    depends_on:
+      execution-1:
+        condition: service_started
+      bootnode:
+        condition: service_started
+
+  bootnode:
+    image: seananderson33/lighthouse:capella
+    expose:
+      - 4242
+    volumes:
+      - ./shared:/shared
+    entrypoint:
+      "/shared/scripts/bootnode.sh"
+    healthcheck:
+      test: "ps -ef | grep -v grep | grep boot_node"
+      interval: 1s
+      retries: 100
+#    depends_on:
+#      lcli:
+#        condition: service_completed_successfully
   genstate:
-    image: ethdreamer/prysmctl:capella
+    image: seananderson33/prysmctl:latest
     volumes:
       - ./shared:/shared
     entrypoint:

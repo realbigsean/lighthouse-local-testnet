@@ -3,29 +3,31 @@
 TESTNET_CONFIG=/shared/testnet
 DATADIR=/datadir
 
-EE_ADDRESS=$1
+while [ ! -e $TESTNET_CONFIG/start_bootnode.txt ]; do
+    sleep 1
+done
+sleep 2
+
+rm $TESTNET_CONFIG/start_bootnode.txt
 
 rm -rf $DATADIR && \
     mkdir -p $DATADIR/testnet && \
     cd $DATADIR/testnet && \
     ln -sf $TESTNET_CONFIG/boot_enr.yaml ./boot_enr.yaml && \
     ln -sf $TESTNET_CONFIG/config.yml ./config.yaml && \
+    ln -sf $TESTNET_CONFIG/enr.dat ./enr.dat && \
+    ln -sf $TESTNET_CONFIG/key ./key && \
     echo "0" > deploy_block.txt && \
     ln -sf $TESTNET_CONFIG/genesis.ssz . \
     && cd /
 
+cat /datadir/testnet/boot_enr.yaml
 
-lighthouse \
-    --datadir=$DATADIR \
+echo "Starting bootnode"
+
+exec lighthouse boot_node \
     --testnet-dir=$DATADIR/testnet \
-    beacon \
-    --http-allow-sync-stalled \
-    --disable-enr-auto-update \
+    --port 4242 \
+    --listen-address 0.0.0.0 \
     --disable-packet-filter \
-    --dummy-eth1 \
-    --http \
-    --http-address=0.0.0.0 \
-    --jwt-secrets=/shared/jwt.secret \
-	  --enable-private-discovery \
-    --execution-endpoint=$EE_ADDRESS
-
+    --network-dir=$DATADIR/testnet \
