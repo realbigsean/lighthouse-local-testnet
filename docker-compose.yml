@@ -1,45 +1,130 @@
-version: '2'
+version: '3.4'
 services:
-  beacon:
-    image: ethdreamer/lighthouse:capella
+  bootnode:
+    build:
+      dockerfile: ./images/Dockerfile
+    expose:
+      - 4242/tcp
+      - 4242/udp
+    volumes:
+      - ./genesis_data:/data
+      - ./genesis_config:/config
+      - ./scripts:/scripts
+    entrypoint:
+      "/scripts/bootnode.sh"
+    depends_on:
+      genesis-generator:
+        condition: service_completed_successfully
+  genesis-generator:
+    image: ethpandaops/ethereum-genesis-generator:latest
+    entrypoint: 
+      "/scripts/genesis_generator.sh"
+    volumes:
+      - ./scripts:/scripts
+      - ./genesis_data:/data
+      - ./validator_data:/validator_data
+      - ./genesis_config:/config
+    expose:
+      - 8000
+  beacon-1:
+    build:
+      dockerfile: ./images/Dockerfile
     expose:
       - 5052
+      - 9000/tcp
+      - 9000/udp
     volumes:
-      - ./shared:/shared
+      - ./scripts:/scripts
+      - ./genesis_data:/data
     entrypoint:
-      "/shared/scripts/beacon.sh"
-  execution:
+      "/scripts/beacon.sh http://proxy-1:8551"
+    depends_on:
+      bootnode:
+        condition: service_started
+  execution-1:
     image: ethereum/client-go
     expose:
       - 8545
       - 8551
     volumes:
-      - ./shared:/shared
+      - ./scripts:/scripts
+      - ./genesis_data:/data
+      - ./genesis_config:/config
     entrypoint:
-      "/shared/scripts/execution.sh"
-  validator:
-    image: ethdreamer/lighthouse:capella
+      "/scripts/execution.sh"
+    depends_on:
+      genesis-generator:
+        condition: service_completed_successfully
+  validator-1:
+    build:
+      dockerfile: ./images/Dockerfile
     expose:
       - 5052
     volumes:
-      - ./shared:/shared
+      - ./scripts:/scripts
+      - ./genesis_data:/data
+      - ./validator_data/node_1:/validator_data
     entrypoint:
-      "/shared/scripts/validator.sh"
+      "/scripts/validator.sh http://beacon-1:5052"
     depends_on:
-      - beacon
-      - execution
-  proxy:
-    image: ethdreamer/json_rpc_snoop:latest
+      genesis-generator:
+        condition: service_completed_successfully
+  proxy-1:
+    image: seananderson33/json_rpc_snoop:latest
     entrypoint: >
       /bin/bash -c "
-        ./json_rpc_snoop -p 8551 -b 0.0.0.0 http://execution:8551
+        ./json_rpc_snoop -p 8551 -b 0.0.0.0 http://execution-1:8551
       "
     expose:
       - 8551
-  genstate:
-    image: ethdreamer/prysmctl:capella
+  beacon-2:
+    build:
+      dockerfile: ./images/Dockerfile
+    expose:
+      - 9000/tcp
+      - 9000/udp
+      - 5052
     volumes:
-      - ./shared:/shared
+      - ./scripts:/scripts
+      - ./genesis_data:/data
     entrypoint:
-      "/shared/scripts/genstate.sh"
-
+      "/scripts/beacon.sh http://proxy-2:8551"
+    depends_on:
+      bootnode:
+        condition: service_started
+  execution-2:
+    image: ethereum/client-go
+    expose:
+      - 8545
+      - 8551
+    volumes:
+      - ./scripts:/scripts
+      - ./genesis_data:/data
+      - ./genesis_config:/config
+    entrypoint:
+      "/scripts/execution.sh"
+    depends_on:
+      genesis-generator:
+        condition: service_completed_successfully
+  validator-2:
+    build:
+      dockerfile: ./images/Dockerfile
+    expose:
+      - 5052
+    volumes:
+      - ./scripts:/scripts
+      - ./genesis_data:/data
+      - ./validator_data/node_2:/validator_data
+    entrypoint:
+      "/scripts/validator.sh http://beacon-2:5052"
+    depends_on:
+      genesis-generator:
+        condition: service_completed_successfully
+  proxy-2:
+    image: seananderson33/json_rpc_snoop:latest
+    entrypoint: >
+      /bin/bash -c "
+        ./json_rpc_snoop -p 8551 -b 0.0.0.0 http://execution-2:8551
+      "
+    expose:
+      - 8551
