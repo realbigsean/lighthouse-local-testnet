@@ -1,40 +1,74 @@
 version: '3.4'
 services:
+  bootnode:
+    build:
+      dockerfile: ./images/Dockerfile
+    expose:
+      - 4242/tcp
+      - 4242/udp
+    volumes:
+      - ./genesis_data:/data
+      - ./genesis_config:/config
+      - ./scripts:/scripts
+    entrypoint:
+      "/scripts/bootnode.sh"
+    depends_on:
+      genesis-generator:
+        condition: service_completed_successfully
+  genesis-generator:
+    image: ethpandaops/ethereum-genesis-generator:latest
+    entrypoint: 
+      "/scripts/genesis_generator.sh"
+    volumes:
+      - ./scripts:/scripts
+      - ./genesis_data:/data
+      - ./validator_data:/validator_data
+      - ./genesis_config:/config
+    expose:
+      - 8000
   beacon-1:
-    image: seananderson33/lighthouse:capella
+    build:
+      dockerfile: ./images/Dockerfile
     expose:
       - 5052
-      - 9000
+      - 9000/tcp
+      - 9000/udp
     volumes:
-      - ./shared:/shared
+      - ./scripts:/scripts
+      - ./genesis_data:/data
     entrypoint:
-      "/shared/scripts/beacon.sh http://proxy-1:8551"
+      "/scripts/beacon.sh http://proxy-1:8551"
     depends_on:
       bootnode:
-        condition: service_healthy
+        condition: service_started
   execution-1:
     image: ethereum/client-go
     expose:
       - 8545
       - 8551
     volumes:
-      - ./shared:/shared
+      - ./scripts:/scripts
+      - ./genesis_data:/data
+      - ./genesis_config:/config
     entrypoint:
-      "/shared/scripts/execution.sh"
+      "/scripts/execution.sh"
+    depends_on:
+      genesis-generator:
+        condition: service_completed_successfully
   validator-1:
-    image: seananderson33/lighthouse:capella
+    build:
+      dockerfile: ./images/Dockerfile
     expose:
       - 5052
     volumes:
-      - ./shared:/shared
-      - ./datadir_1:/datadir
+      - ./scripts:/scripts
+      - ./genesis_data:/data
+      - ./validator_data/node_1:/validator_data
     entrypoint:
-      "/shared/scripts/validator.sh http://beacon-1:5052"
+      "/scripts/validator.sh http://beacon-1:5052"
     depends_on:
-      lcli:
+      genesis-generator:
         condition: service_completed_successfully
-#      - beacon-1
-#      - execution-1
   proxy-1:
     image: seananderson33/json_rpc_snoop:latest
     entrypoint: >
@@ -44,40 +78,48 @@ services:
     expose:
       - 8551
   beacon-2:
-    image: seananderson33/lighthouse:capella
+    build:
+      dockerfile: ./images/Dockerfile
     expose:
-      - 9000
+      - 9000/tcp
+      - 9000/udp
       - 5052
     volumes:
-      - ./shared:/shared
+      - ./scripts:/scripts
+      - ./genesis_data:/data
     entrypoint:
-      "/shared/scripts/beacon.sh http://proxy-2:8551"
+      "/scripts/beacon.sh http://proxy-2:8551"
     depends_on:
       bootnode:
-        condition: service_healthy
+        condition: service_started
   execution-2:
     image: ethereum/client-go
     expose:
       - 8545
       - 8551
     volumes:
-      - ./shared:/shared
+      - ./scripts:/scripts
+      - ./genesis_data:/data
+      - ./genesis_config:/config
     entrypoint:
-      "/shared/scripts/execution.sh"
+      "/scripts/execution.sh"
+    depends_on:
+      genesis-generator:
+        condition: service_completed_successfully
   validator-2:
-    image: seananderson33/lighthouse:capella
+    build:
+      dockerfile: ./images/Dockerfile
     expose:
       - 5052
     volumes:
-      - ./shared:/shared
-      - ./datadir_2:/datadir
+      - ./scripts:/scripts
+      - ./genesis_data:/data
+      - ./validator_data/node_2:/validator_data
     entrypoint:
-      "/shared/scripts/validator.sh http://beacon-2:5052"
+      "/scripts/validator.sh http://beacon-2:5052"
     depends_on:
-      lcli:
+      genesis-generator:
         condition: service_completed_successfully
-#      beacon-2:
-#      execution-2:
   proxy-2:
     image: seananderson33/json_rpc_snoop:latest
     entrypoint: >
@@ -86,39 +128,3 @@ services:
       "
     expose:
       - 8551
-  lcli:
-    image: seananderson33/lcli:capella-plus
-    volumes:
-      - ./shared:/shared
-      - ./datadir_1:/datadir_1
-      - ./datadir_2:/datadir_2
-    entrypoint:
-      "/shared/scripts/gen_validators.sh"
-    depends_on:
-      execution-1:
-        condition: service_started
-      bootnode:
-        condition: service_started
-
-  bootnode:
-    image: seananderson33/lighthouse:capella
-    expose:
-      - 4242
-    volumes:
-      - ./shared:/shared
-    entrypoint:
-      "/shared/scripts/bootnode.sh"
-    healthcheck:
-      test: "ps -ef | grep -v grep | grep boot_node"
-      interval: 1s
-      retries: 100
-#    depends_on:
-#      lcli:
-#        condition: service_completed_successfully
-  genstate:
-    image: seananderson33/prysmctl:latest
-    volumes:
-      - ./shared:/shared
-    entrypoint:
-      "/shared/scripts/genstate.sh"
-
