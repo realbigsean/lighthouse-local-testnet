@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source /config/values.env
+
 TESTNET_DIR=/data/custom_config_data
 JWT=/data/cl/jwtsecret
 DATADIR=/datadir
@@ -21,6 +23,7 @@ echo "External ip: $EXTERNAL_IP"
 
 # TODO move the index-getting to its own script
 INDEX="$( v="$( nslookup "$( hostname -i )" | sed '1q' )"; v="${v##* = }"; v="${v%%.*}"; v="${v##*-}"; v="${v##*_}"; echo "$v" )"
+TARGET_PEERS=$(( NUMBER_OF_NODES - 1 ))
 
 echo "Hello I'm container $INDEX "
 
@@ -40,5 +43,6 @@ exec lighthouse \
 	  --enable-private-discovery \
 	  --enr-address "$EXTERNAL_IP"\
 	  --enr-udp-port 9000 \
+	  --target-peers "$TARGET_PEERS" \
     --execution-endpoint="http://lighthouse-local-testnet-proxy-$INDEX:8551"
 

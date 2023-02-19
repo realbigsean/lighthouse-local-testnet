@@ -30,7 +30,8 @@ services:
     build:
       dockerfile: ./images/lighthouse.Dockerfile
     deploy:
-      replicas: 2 # TODO use env var NUM_NODES
+      # noinspection ComposeUnknownValues
+      replicas: ${NUMBER_OF_NODES}
     expose:
       - 5052
       - 9000/tcp
@@ -38,6 +39,7 @@ services:
     volumes:
       - ./scripts:/scripts
       - ./genesis_data:/data
+      - ./genesis_config:/config
     entrypoint:
       "/scripts/beacon.sh"
     depends_on:
@@ -46,7 +48,8 @@ services:
   execution:
     image: ethereum/client-go
     deploy:
-      replicas: 2
+      # noinspection ComposeUnknownValues
+      replicas: ${NUMBER_OF_NODES}
     expose:
       - 8545
       - 8551
@@ -62,14 +65,16 @@ services:
   validator:
     build:
       dockerfile: ./images/lighthouse.Dockerfile
+    env_file: ./genesis_config/values.env
     deploy:
-      replicas: 2
+      # noinspection ComposeUnknownValues
+      replicas: ${NUMBER_OF_NODES}
     expose:
       - 5052
     volumes:
       - ./scripts:/scripts
       - ./genesis_data:/data
-      - ./validator_data/node_1:/validator_data
+      - ./validator_data:/validator_data
     entrypoint:
       "/scripts/validator.sh"
     depends_on:
@@ -78,11 +83,24 @@ services:
   proxy:
     image: seananderson33/json_rpc_snoop:capella
     deploy:
-      replicas: 2
+      # noinspection ComposeUnknownValues
+      replicas: ${NUMBER_OF_NODES}
     entrypoint:
       "/scripts/proxy.sh"
     expose:
       - 8551
     volumes:
       - ./scripts:/scripts
-
+  mock-relay:
+    image: seananderson33/mock-relay:latest
+    deploy:
+      # noinspection ComposeUnknownValues
+      replicas: ${NUMBER_OF_NODES}
+    entrypoint:
+      "/scripts/mock-relay.sh"
+    expose:
+      - 8650
+    volumes:
+      - ./scripts:/scripts
+      - ./genesis_data:/data
+      - ./genesis_config:/config
