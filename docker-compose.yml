@@ -2,7 +2,7 @@ version: '3.4'
 services:
   bootnode:
     build:
-      dockerfile: ./images/Dockerfile
+      dockerfile: ./images/lighthouse.Dockerfile
     expose:
       - 4242/tcp
       - 4242/udp
@@ -26,9 +26,12 @@ services:
       - ./genesis_config:/config
     expose:
       - 8000
-  beacon-1:
+  beacon:
     build:
-      dockerfile: ./images/Dockerfile
+      dockerfile: ./images/lighthouse.Dockerfile
+    deploy:
+      # noinspection ComposeUnknownValues
+      replicas: ${NUMBER_OF_NODES}
     expose:
       - 5052
       - 9000/tcp
@@ -36,13 +39,17 @@ services:
     volumes:
       - ./scripts:/scripts
       - ./genesis_data:/data
+      - ./genesis_config:/config
     entrypoint:
-      "/scripts/beacon.sh http://proxy-1:8551"
+      "/scripts/beacon.sh"
     depends_on:
       bootnode:
         condition: service_started
-  execution-1:
+  execution:
     image: ethereum/client-go
+    deploy:
+      # noinspection ComposeUnknownValues
+      replicas: ${NUMBER_OF_NODES}
     expose:
       - 8545
       - 8551
@@ -55,76 +62,45 @@ services:
     depends_on:
       genesis-generator:
         condition: service_completed_successfully
-  validator-1:
+  validator:
     build:
-      dockerfile: ./images/Dockerfile
+      dockerfile: ./images/lighthouse.Dockerfile
+    env_file: ./genesis_config/values.env
+    deploy:
+      # noinspection ComposeUnknownValues
+      replicas: ${NUMBER_OF_NODES}
     expose:
       - 5052
     volumes:
       - ./scripts:/scripts
       - ./genesis_data:/data
-      - ./validator_data/node_1:/validator_data
+      - ./validator_data:/validator_data
     entrypoint:
-      "/scripts/validator.sh http://beacon-1:5052"
+      "/scripts/validator.sh"
     depends_on:
       genesis-generator:
         condition: service_completed_successfully
-  proxy-1:
-    image: seananderson33/json_rpc_snoop:latest
-    entrypoint: >
-      /bin/bash -c "
-        ./json_rpc_snoop -p 8551 -b 0.0.0.0 http://execution-1:8551
-      "
+  proxy:
+    image: seananderson33/json_rpc_snoop:capella
+    deploy:
+      # noinspection ComposeUnknownValues
+      replicas: ${NUMBER_OF_NODES}
+    entrypoint:
+      "/scripts/proxy.sh"
     expose:
       - 8551
-  beacon-2:
-    build:
-      dockerfile: ./images/Dockerfile
-    expose:
-      - 9000/tcp
-      - 9000/udp
-      - 5052
     volumes:
       - ./scripts:/scripts
-      - ./genesis_data:/data
+  mock-relay:
+    image: seananderson33/mock-relay:latest
+    deploy:
+      # noinspection ComposeUnknownValues
+      replicas: ${NUMBER_OF_NODES}
     entrypoint:
-      "/scripts/beacon.sh http://proxy-2:8551"
-    depends_on:
-      bootnode:
-        condition: service_started
-  execution-2:
-    image: ethereum/client-go
+      "/scripts/mock-relay.sh"
     expose:
-      - 8545
-      - 8551
+      - 8650
     volumes:
       - ./scripts:/scripts
       - ./genesis_data:/data
       - ./genesis_config:/config
-    entrypoint:
-      "/scripts/execution.sh"
-    depends_on:
-      genesis-generator:
-        condition: service_completed_successfully
-  validator-2:
-    build:
-      dockerfile: ./images/Dockerfile
-    expose:
-      - 5052
-    volumes:
-      - ./scripts:/scripts
-      - ./genesis_data:/data
-      - ./validator_data/node_2:/validator_data
-    entrypoint:
-      "/scripts/validator.sh http://beacon-2:5052"
-    depends_on:
-      genesis-generator:
-        condition: service_completed_successfully
-  proxy-2:
-    image: seananderson33/json_rpc_snoop:latest
-    entrypoint: >
-      /bin/bash -c "
-        ./json_rpc_snoop -p 8551 -b 0.0.0.0 http://execution-2:8551
-      "
-    expose:
-      - 8551

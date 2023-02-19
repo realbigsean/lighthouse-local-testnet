@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source /config/values.env
+
 TESTNET_DIR=/data/custom_config_data
 JWT=/data/cl/jwtsecret
 DATADIR=/datadir
@@ -19,12 +21,16 @@ echo "- $bootnode_enr" > /data/custom_config_data/boot_enr.yaml
 EXTERNAL_IP=$(ip addr show eth0 | grep inet | awk '{ print $2 }' | cut -d '/' -f1)
 echo "External ip: $EXTERNAL_IP"
 
+# TODO move the index-getting to its own script
+INDEX="$( v="$( nslookup "$( hostname -i )" | sed '1q' )"; v="${v##* = }"; v="${v%%.*}"; v="${v##*-}"; v="${v##*_}"; echo "$v" )"
+TARGET_PEERS=$(( NUMBER_OF_NODES - 1 ))
+
+echo "Hello I'm container $INDEX "
+
 rm -rf $DATADIR
 
-EE_ADDRESS=$1
-
-RUST_LOG="libp2p" lighthouse -l \
-    --debug-level trace \
+exec lighthouse \
+    --debug-level debug\
     --datadir=$DATADIR \
     --testnet-dir=$TESTNET_DIR \
     beacon \
@@ -37,5 +43,6 @@ RUST_LOG="libp2p" lighthouse -l \
 	  --enable-private-discovery \
 	  --enr-address "$EXTERNAL_IP"\
 	  --enr-udp-port 9000 \
-    --execution-endpoint="$EE_ADDRESS"
+	  --target-peers "$TARGET_PEERS" \
+    --execution-endpoint="http://lighthouse-local-testnet-proxy-$INDEX:8551"
 
