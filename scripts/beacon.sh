@@ -44,5 +44,6 @@ exec lighthouse \
 	  --enr-address "$EXTERNAL_IP"\
 	  --enr-udp-port 9000 \
 	  --target-peers "$TARGET_PEERS" \
+	  --builder "http://lighthouse-local-testnet-mock-relay-$INDEX:8650" \
     --execution-endpoint="http://lighthouse-local-testnet-proxy-$INDEX:8551"
 
