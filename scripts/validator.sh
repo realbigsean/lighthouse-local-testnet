@@ -11,4 +11,5 @@ lighthouse \
     validator \
     --suggested-fee-recipient=0x25c4a76E7d118705e7Ea2e9b7d8C59930d8aCD3b \
     --init-slashing-protection \
+    --builder-proposals \
     --beacon-nodes "http://lighthouse-local-testnet-beacon-$INDEX:5052" \
