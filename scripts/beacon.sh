@@ -21,7 +21,6 @@ echo "- $bootnode_enr" > /data/custom_config_data/boot_enr.yaml
 EXTERNAL_IP=$(ip addr show eth0 | grep inet | awk '{ print $2 }' | cut -d '/' -f1)
 echo "External ip: $EXTERNAL_IP"
 
-# TODO move the index-getting to its own script
 INDEX="$( v="$( nslookup "$( hostname -i )" | sed '1q' )"; v="${v##* = }"; v="${v%%.*}"; v="${v##*-}"; v="${v##*_}"; echo "$v" )"
 TARGET_PEERS=$(( NUMBER_OF_NODES - 1 ))
 
@@ -44,6 +43,6 @@ exec lighthouse \
 	  --enr-address "$EXTERNAL_IP"\
 	  --enr-udp-port 9000 \
 	  --target-peers "$TARGET_PEERS" \
-	  --builder "http://lighthouse-local-testnet-mock-relay-$INDEX:8650" \
+	  --builder "http://lighthouse-local-testnet-proxy-builder-$INDEX:8650" \
     --execution-endpoint="http://lighthouse-local-testnet-proxy-$INDEX:8551"
 
