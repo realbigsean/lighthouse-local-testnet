@@ -91,6 +91,17 @@ services:
       - 8551
     volumes:
       - ./scripts:/scripts
+  proxy-builder:
+    image: seananderson33/json_rpc_snoop:capella
+    deploy:
+      # noinspection ComposeUnknownValues
+      replicas: ${NUMBER_OF_NODES}
+    entrypoint:
+      "/scripts/proxy-builder.sh"
+    expose:
+      - 8650
+    volumes:
+      - ./scripts:/scripts
   mock-relay:
     build:
       dockerfile: ./images/mock-relay.Dockerfile
