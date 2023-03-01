@@ -43,10 +43,10 @@ services:
     entrypoint:
       "/scripts/beacon.sh"
     depends_on:
-      bootnode:
-        condition: service_started
+      genesis-generator:
+        condition: service_completed_successfully
   execution:
-    image: ethereum/client-go
+    image: ethereum/client-go:v1.11.1
     deploy:
       # noinspection ComposeUnknownValues
       replicas: ${NUMBER_OF_NODES}

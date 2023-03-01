@@ -26,6 +26,7 @@ TARGET_PEERS=$(( NUMBER_OF_NODES - 1 ))
 
 echo "Hello I'm container $INDEX "
 
+# TODO  want to be able to stop and restart nodes
 rm -rf $DATADIR
 
 exec lighthouse \
